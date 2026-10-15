@@ -3,8 +3,15 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>📅 預約 + 提醒</title>
+<title data-i18n="title">📅 預約 + 提醒</title>
 <link rel="stylesheet" href="style.css">
+<style>
+  .lang-switch { display: flex; gap: 0.3rem; margin-left: 0.8rem; }
+  .lang-switch button { border: 1px solid #6b5138; background: transparent;
+    color: #d8d2c4; border-radius: 6px; padding: 0.3rem 0.6rem; cursor: pointer; }
+  .lang-switch button.active { background: #3a322a; color: #fff;
+    border-color: transparent; }
+</style>
 </head>
 <body>
 <header class="topbar">
@@ -16,6 +23,10 @@
     <button data-tab="hours" data-i18n="tab_hours">營業時間</button>
     <button data-tab="settings" data-i18n="tab_settings">設定</button>
   </nav>
+  <div class="lang-switch">
+    <button type="button" data-lang-btn="zh">繁中</button>
+    <button type="button" data-lang-btn="en">EN</button>
+  </div>
 </header>
 <main class="container">
 
@@ -124,7 +135,7 @@
     <p class="muted" data-i18n="hours_hint">勾選營業的日子，設定開門及關門時間。時段會按服務所需時間自動生成。</p>
     <form id="hours-form">
       <table class="tbl"><thead><tr>
-        <th></th><th>Open</th><th>Close</th>
+        <th></th><th data-i18n="hours_open">開門</th><th data-i18n="hours_close">關門</th>
       </tr></thead><tbody id="hours-body"></tbody></table>
       <div class="form-actions">
         <button type="submit" class="primary" data-i18n="hours_save">儲存營業時間</button>
@@ -170,6 +181,7 @@
 
 </main>
 <script src="db.js"></script>
+<script src="i18n.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
