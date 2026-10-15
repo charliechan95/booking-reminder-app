@@ -2,6 +2,11 @@
    localStorage-backed, no backend. WhatsApp via wa.me deep links (no paid API). */
 "use strict";
 
+function _lang() {
+  try { return localStorage.getItem("bra_lang") || "zh"; } catch { return "zh"; }
+}
+function _en() { return _lang() === "en"; }
+
 const BK_STATUSES = ["confirmed", "arrived", "no_show", "cancelled", "rescheduled"];
 const BK_LABELS_ZH = {
   confirmed: "已確認", arrived: "已到達", no_show: "爽約",
@@ -30,6 +35,8 @@ const DEFAULT_HOURS = {
   sun: { enabled: false, open: "09:00", close: "18:00" },
 };
 
+const WA_TPL_KEYS = { confirm: "wa_tpl_confirm", remind: "wa_tpl_remind", deposit: "wa_tpl_deposit" };
+
 const DEFAULT_SETTINGS = {
   shop_name: "",
   shop_phone: "",
@@ -38,7 +45,10 @@ const DEFAULT_SETTINGS = {
   payme_name: "",
   deposit_mode: "flat",   // "flat" | "percent"
   deposit_value: "100",
-  lang: "zh",             // "zh" | "en"
+  lang: "zh",             // "zh" | "en" (legacy; UI language now lives in bra_lang)
+  wa_tpl_confirm: "",    // saved custom templates: used verbatim, never overridden
+  wa_tpl_remind: "",
+  wa_tpl_deposit: "",
 };
 
 const WA_TEMPLATES = {
@@ -264,12 +274,23 @@ const DB = {
     if (!num) return "";
     return "https://wa.me/" + num + "?text=" + encodeURIComponent(text);
   },
+  /** Effective WhatsApp template for a message kind.
+      A saved custom template is used verbatim in both languages and never
+      overridden by a language switch; otherwise the default for the current
+      UI language applies. */
+  waTemplate(kind, lang) {
+    const st = this.getSettings();
+    const saved = (st[WA_TPL_KEYS[kind] || WA_TPL_KEYS.confirm] || "").trim();
+    if (saved) return saved;
+    const l = lang || _lang();
+    const d = WA_TEMPLATES[kind] || WA_TEMPLATES.confirm;
+    return d[l] || d.zh;
+  },
   waMessage(kind, booking, lang) {
     const st = this.getSettings();
     const svc = this.getService(booking.service_id);
-    const lang2 = lang || st.lang || "zh";
-    const tpl = (WA_TEMPLATES[kind] || WA_TEMPLATES.confirm)[lang2] ||
-                WA_TEMPLATES[kind].zh;
+    const lang2 = lang || _lang();
+    const tpl = this.waTemplate(kind, lang2);
     return tpl
       .replaceAll("{name}", booking.customer_name)
       .replaceAll("{shop}", st.shop_name || (lang2 === "en" ? "our shop" : "本店"))
@@ -304,5 +325,5 @@ const DB = {
 };
 
 if (typeof module !== "undefined" && module.exports) {
-  module.exports = { DB, BK_STATUSES, DEP_STATUSES, DEFAULT_HOURS, DEFAULT_SETTINGS, WA_TEMPLATES };
+  module.exports = { DB, BK_STATUSES, DEP_STATUSES, DEFAULT_HOURS, DEFAULT_SETTINGS, WA_TEMPLATES, WA_TPL_KEYS };
 }
