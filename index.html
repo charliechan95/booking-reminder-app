@@ -172,6 +172,16 @@
             <option value="en">English</option>
           </select></label>
       </div>
+      <h2 data-i18n="tpl_title">WhatsApp 訊息範本</h2>
+      <p class="muted" data-i18n="tpl_hint">可填入：{name} 客人姓名 · {shop} 店名 · {service} 服務 · {date} 日期 · {time} 時間 · {amount} 訂金金額 · {fps_id} · {fps_name}。如不修改，會使用內置範本，並自動跟隨語言切換。</p>
+      <div class="form-grid">
+        <label class="wide"><span data-i18n="tpl_confirm">確認預約訊息</span>
+          <textarea id="set-tpl-confirm" rows="4"></textarea></label>
+        <label class="wide"><span data-i18n="tpl_remind">預約提醒訊息</span>
+          <textarea id="set-tpl-remind" rows="4"></textarea></label>
+        <label class="wide"><span data-i18n="tpl_deposit">訂金訊息</span>
+          <textarea id="set-tpl-deposit" rows="4"></textarea></label>
+      </div>
       <div class="form-actions">
         <button type="submit" class="primary" data-i18n="set_save">儲存設定</button>
         <span id="set-ok" class="ok" style="display:none" data-i18n="set_saved">設定已儲存 ✓</span>
