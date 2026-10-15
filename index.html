@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>📅 預約 + 提醒</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand" data-i18n="app_title">📅 預約 + 提醒</div>
+  <nav class="tabs">
+    <button data-tab="dashboard" class="active" data-i18n="tab_dashboard">儀表板</button>
+    <button data-tab="bookings" data-i18n="tab_bookings">預約</button>
+    <button data-tab="services" data-i18n="tab_services">服務</button>
+    <button data-tab="hours" data-i18n="tab_hours">營業時間</button>
+    <button data-tab="settings" data-i18n="tab_settings">設定</button>
+  </nav>
+</header>
+<main class="container">
+
+  <!-- Dashboard -->
+  <section id="view-dashboard" class="view active">
+    <h1 data-i18n="tab_dashboard">儀表板</h1>
+    <section class="cards">
+      <div class="card"><div class="card-num" id="st-today">0</div>
+        <div class="card-label" data-i18n="today_bookings">今日已確認預約</div></div>
+      <div class="card"><div class="card-num" id="st-rate">0%</div>
+        <div class="card-label"><span data-i18n="noshow_rate_7d">近7日爽約率</span>
+          <span class="muted" id="rate-detail"></span></div></div>
+      <div class="card"><div class="card-num" id="st-dep">0</div>
+        <div class="card-label" data-i18n="pending_deposits">待收訂金</div></div>
+      <div class="card"><div class="card-num" id="st-total">0</div>
+        <div class="card-label" data-i18n="total_bookings">預約總數</div></div>
+    </section>
+    <section>
+      <h2><span data-i18n="today_list">今日預約</span>
+        <button id="view-all" class="link" data-i18n="view_all">查看全部 →</button></h2>
+      <table class="tbl"><thead><tr>
+        <th data-i18n="col_customer">客人</th><th data-i18n="col_service">服務</th>
+        <th data-i18n="col_datetime">日期時間</th><th data-i18n="col_status">狀態</th>
+        <th data-i18n="col_actions">操作</th>
+      </tr></thead><tbody id="today-body"></tbody></table>
+    </section>
+  </section>
+
+  <!-- Bookings -->
+  <section id="view-bookings" class="view">
+    <h1 data-i18n="tab_bookings">預約</h1>
+    <div class="toolbar">
+      <div class="search">
+        <input type="text" id="f-q" data-i18n-ph="search_ph" placeholder="搜尋姓名 / 電話…">
+        <select id="f-status"></select>
+        <input type="date" id="f-date">
+        <button id="f-apply" data-i18n="apply">篩選</button>
+        <button id="f-reset" data-i18n="reset">重設</button>
+      </div>
+      <button id="btn-new" class="primary" data-i18n="new_booking">+ 新增預約</button>
+    </div>
+
+    <div id="bk-form-wrap" class="panel" style="display:none">
+      <h2 id="bk-form-title">新增預約</h2>
+      <form id="bk-form">
+        <input type="hidden" id="bk-id">
+        <div class="form-grid">
+          <label><span data-i18n="f_name">客人姓名</span>
+            <input type="text" id="bk-name" required></label>
+          <label><span data-i18n="f_phone">電話</span>
+            <input type="tel" id="bk-phone" placeholder="9xxx xxxx"></label>
+          <label><span data-i18n="f_service">服務</span>
+            <select id="bk-service"></select></label>
+          <label><span data-i18n="f_date">日期</span>
+            <input type="date" id="bk-date"></label>
+          <label><span data-i18n="f_slot">時段</span>
+            <select id="bk-slot"></select></label>
+          <label class="wide"><span data-i18n="f_notes">備註</span>
+            <input type="text" id="bk-notes"></label>
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="primary" data-i18n="save">儲存</button>
+          <button type="button" id="bk-cancel" data-i18n="cancel">取消</button>
+        </div>
+        <div id="bk-err" class="err"></div>
+      </form>
+    </div>
+
+    <table class="tbl"><thead><tr>
+      <th data-i18n="col_customer">客人</th><th data-i18n="col_service">服務</th>
+      <th data-i18n="col_datetime">日期時間</th><th data-i18n="col_status">狀態</th>
+      <th data-i18n="col_actions">操作</th>
+    </tr></thead><tbody id="bk-body"></tbody></table>
+  </section>
+
+  <!-- Services -->
+  <section id="view-services" class="view">
+    <h1 data-i18n="tab_services">服務</h1>
+    <div class="panel">
+      <form id="svc-form">
+        <div class="form-grid">
+          <label><span data-i18n="svc_name_zh">服務名稱（中文）</span>
+            <input type="text" id="svc-zh"></label>
+          <label><span data-i18n="svc_name_en">服務名稱（英文）</span>
+            <input type="text" id="svc-en"></label>
+          <label><span data-i18n="svc_duration">需時（分鐘）</span>
+            <input type="number" id="svc-dur" min="5" step="5" value="60"></label>
+          <label><span data-i18n="svc_price">價錢（HKD）</span>
+            <input type="number" id="svc-price" min="0" step="1" value="0"></label>
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="primary" data-i18n="svc_add">新增服務</button>
+        </div>
+        <div id="svc-err" class="err"></div>
+      </form>
+    </div>
+    <table class="tbl"><thead><tr>
+      <th data-i18n="col_service">服務</th><th data-i18n="svc_duration">需時（分鐘）</th>
+      <th data-i18n="svc_price">價錢（HKD）</th><th data-i18n="col_actions">操作</th>
+    </tr></thead><tbody id="svc-body"></tbody></table>
+  </section>
+
+  <!-- Hours -->
+  <section id="view-hours" class="view">
+    <h1 data-i18n="tab_hours">營業時間</h1>
+    <p class="muted" data-i18n="hours_hint">勾選營業的日子，設定開門及關門時間。時段會按服務所需時間自動生成。</p>
+    <form id="hours-form">
+      <table class="tbl"><thead><tr>
+        <th></th><th>Open</th><th>Close</th>
+      </tr></thead><tbody id="hours-body"></tbody></table>
+      <div class="form-actions">
+        <button type="submit" class="primary" data-i18n="hours_save">儲存營業時間</button>
+      </div>
+    </form>
+  </section>
+
+  <!-- Settings -->
+  <section id="view-settings" class="view">
+    <h1 data-i18n="tab_settings">設定</h1>
+    <form id="settings-form">
+      <div class="form-grid">
+        <label><span data-i18n="set_shop">店名</span>
+          <input type="text" id="set-shop"></label>
+        <label><span data-i18n="set_shop_phone">店舖 WhatsApp 號碼</span>
+          <input type="tel" id="set-shop-phone" placeholder="9xxx xxxx"></label>
+        <label><span data-i18n="set_fps_id">FPS ID</span>
+          <input type="text" id="set-fps-id"></label>
+        <label><span data-i18n="set_fps_name">FPS 戶口名稱</span>
+          <input type="text" id="set-fps-name"></label>
+        <label><span data-i18n="set_payme">PayMe 名稱</span>
+          <input type="text" id="set-payme"></label>
+        <label><span data-i18n="set_dep_mode">訂金模式</span>
+          <select id="set-dep-mode">
+            <option value="flat" data-i18n="dep_flat">固定金額</option>
+            <option value="percent" data-i18n="dep_percent">服務價錢百分比</option>
+          </select></label>
+        <label><span><span data-i18n="set_dep_value">訂金金額 / 百分比</span>
+          <span class="muted" data-i18n="pct_hint"></span></span>
+          <input type="number" id="set-dep-value" min="0" step="1" value="100"></label>
+        <label><span data-i18n="set_lang">語言</span>
+          <select id="set-lang">
+            <option value="zh">繁體中文</option>
+            <option value="en">English</option>
+          </select></label>
+      </div>
+      <div class="form-actions">
+        <button type="submit" class="primary" data-i18n="set_save">儲存設定</button>
+        <span id="set-ok" class="ok" style="display:none" data-i18n="set_saved">設定已儲存 ✓</span>
+      </div>
+    </form>
+  </section>
+
+</main>
+<script src="db.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
