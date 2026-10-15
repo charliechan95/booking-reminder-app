@@ -285,6 +285,20 @@ function renderSettings() {
   g("set-dep-mode").value = s.deposit_mode || "flat";
   g("set-dep-value").value = s.deposit_value || "100";
   g("set-lang").value = LANG;
+  g("set-tpl-confirm").value = DB.waTemplate("confirm");
+  g("set-tpl-remind").value = DB.waTemplate("remind");
+  g("set-tpl-deposit").value = DB.waTemplate("deposit");
+}
+
+/* A template box counts as custom only when its text differs from the
+   built-in default for the current language; otherwise store "" so the
+   template keeps following the app language automatically. */
+function tplValue(id, kind) {
+  const v = document.getElementById(id).value.trim();
+  if (!v) return "";
+  const d = ((WA_TEMPLATES[kind] || {})[LANG]
+    || (WA_TEMPLATES[kind] || {}).zh || "").trim();
+  return v === d ? "" : v;
 }
 document.getElementById("settings-form").addEventListener("submit", (e) => {
   e.preventDefault();
@@ -296,6 +310,9 @@ document.getElementById("settings-form").addEventListener("submit", (e) => {
     payme_name: document.getElementById("set-payme").value,
     deposit_mode: document.getElementById("set-dep-mode").value,
     deposit_value: document.getElementById("set-dep-value").value,
+    wa_tpl_confirm: tplValue("set-tpl-confirm", "confirm"),
+    wa_tpl_remind: tplValue("set-tpl-remind", "remind"),
+    wa_tpl_deposit: tplValue("set-tpl-deposit", "deposit"),
   });
   setLang(document.getElementById("set-lang").value); // persists + applyI18n + renderAll
   const ok = document.getElementById("set-ok");
