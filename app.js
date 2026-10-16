@@ -196,6 +196,8 @@ document.getElementById("btn-new").addEventListener("click", () => openBookingFo
 document.getElementById("view-all").addEventListener("click", () => gotoTab("bookings"));
 
 /* ---- services ---------------------------------------------------------------- */
+let editingSvcId = null;
+
 function renderServices() {
   const all = DB.listServices();
   document.getElementById("svc-body").innerHTML = all.length
@@ -205,29 +207,58 @@ function renderServices() {
         <td>${s.duration_min} min</td>
         <td>$${Math.round(s.price_hkd)}</td>
         <td><div class="row-actions">
+          <button data-editsvc="${s.id}">${esc(t("st_edit"))}</button>
           <button data-delsvc="${s.id}" class="danger">${esc(t("st_del"))}</button>
         </div></td>
       </tr>`).join("")
     : `<tr><td colspan="4" class="muted">${esc(t("no_results"))}</td></tr>`;
 }
+/* Edit reuses the same form as create (mirrors openBookingForm): prefill the
+   fields, switch the submit label, cancel returns to create mode. */
+function openServiceForm(id) {
+  const s = id ? DB.getService(id) : null;
+  editingSvcId = s ? s.id : null;
+  document.getElementById("svc-zh").value = s ? (s.name_zh || "") : "";
+  document.getElementById("svc-en").value = s ? (s.name_en || "") : "";
+  document.getElementById("svc-dur").value = s ? s.duration_min : 60;
+  document.getElementById("svc-price").value = s ? Math.round(s.price_hkd) : 0;
+  document.getElementById("svc-submit").textContent =
+    s ? t("svc_update") : t("svc_add");
+  document.getElementById("svc-cancel").style.display = s ? "" : "none";
+  document.getElementById("svc-err").textContent = "";
+  gotoTab("services");
+  document.getElementById("svc-form").scrollIntoView({ block: "start" });
+}
+function closeServiceForm() {
+  editingSvcId = null;
+  document.getElementById("svc-form").reset();
+  document.getElementById("svc-submit").textContent = t("svc_add");
+  document.getElementById("svc-cancel").style.display = "none";
+  document.getElementById("svc-err").textContent = "";
+}
+document.getElementById("svc-cancel").addEventListener("click", closeServiceForm);
 document.getElementById("svc-form").addEventListener("submit", (e) => {
   e.preventDefault();
   try {
-    DB.addService({
+    const payload = {
       name_zh: document.getElementById("svc-zh").value,
       name_en: document.getElementById("svc-en").value,
       duration_min: document.getElementById("svc-dur").value,
       price_hkd: document.getElementById("svc-price").value,
-    });
-    document.getElementById("svc-form").reset();
-    document.getElementById("svc-err").textContent = "";
+    };
+    if (editingSvcId) DB.updateService(editingSvcId, payload);
+    else DB.addService(payload);
+    const wasEdit = editingSvcId;
+    closeServiceForm();
     renderServices(); fillServiceSelect();
+    if (wasEdit) renderBookings(); // names may have changed
   } catch (ex) {
     document.getElementById("svc-err").textContent =
       ex.message === "service_in_use" ? t("err_svc_in_use") : t("err_name");
   }
 });
 document.addEventListener("click", (e) => {
+  if (e.target.dataset.editsvc) { openServiceForm(+e.target.dataset.editsvc); }
   if (e.target.dataset.delsvc) {
     try {
       if (!confirm(t("confirm_del_svc"))) return;
@@ -320,6 +351,48 @@ document.getElementById("settings-form").addEventListener("submit", (e) => {
   setTimeout(() => { ok.style.display = "none"; }, 2500);
 });
 
+/* ---- backup: export / import --------------------------------------------------- */
+document.getElementById("btn-export").addEventListener("click", () => {
+  const blob = new Blob([JSON.stringify(DB.exportData(), null, 2)],
+    { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "booking-reminder-backup-" + DB.todayStr() + ".json";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+});
+document.getElementById("btn-import").addEventListener("click", () => {
+  document.getElementById("file-import").click();
+});
+document.getElementById("file-import").addEventListener("change", (e) => {
+  const f = e.target.files && e.target.files[0];
+  e.target.value = "";
+  if (!f) return;
+  const msg = document.getElementById("backup-msg");
+  const reader = new FileReader();
+  const fail = () => { msg.className = "err"; msg.textContent = t("backup_bad"); };
+  reader.onload = () => {
+    try {
+      DB.importData(JSON.parse(reader.result));
+      msg.className = "ok";
+      msg.textContent = t("backup_ok");
+      renderAll();
+    } catch { fail(); }
+  };
+  reader.onerror = fail;
+  reader.readAsText(f);
+});
+
+/* ---- storage failure signal --------------------------------------------------- */
+/* DB._write failures surface here as a visible banner (see db.js _writeFailed). */
+DB.onWriteError = () => {
+  const el = document.getElementById("storage-err");
+  if (el) { el.style.display = ""; el.textContent = t("err_storage"); }
+};
+
 /* ---- i18n application ------------------------------------------------------------ */
 /* Rebuilds the dynamically-rendered status filter in the UI language.
    Called on every language switch via setLang (i18n.js). */
@@ -329,6 +402,10 @@ window.onLangChange = function () {
     `<option value="">${esc(t("all_status"))}</option>` +
     BK_STATUSES.map((s) => `<option value="${s}">${esc(bkLabel(s))}</option>`).join("");
   sel.value = filters.status;
+  /* applyI18n resets the service submit button to svc_add; restore edit label. */
+  if (editingSvcId) {
+    document.getElementById("svc-submit").textContent = t("svc_update");
+  }
 };
 
 /* ---- boot ------------------------------------------------------------------------- */

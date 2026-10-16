@@ -7,6 +7,11 @@ function _lang() {
 }
 function _en() { return _lang() === "en"; }
 
+/** Shape check for backup import: a plain record carrying a numeric id. */
+function _isObjWithId(x) {
+  return x && typeof x === "object" && !Array.isArray(x) && typeof x.id === "number";
+}
+
 const BK_STATUSES = ["confirmed", "arrived", "no_show", "cancelled", "rescheduled"];
 const BK_LABELS_ZH = {
   confirmed: "已確認", arrived: "已到達", no_show: "爽約",
@@ -74,10 +79,22 @@ const DB = {
       return raw ? JSON.parse(raw) : fallback;
     } catch { return fallback; }
   },
-  _write(key, value) { localStorage.setItem(key, JSON.stringify(value)); },
+  _write(key, value) {
+    try { localStorage.setItem(key, JSON.stringify(value)); }
+    catch (err) { this._writeFailed(err); }
+  },
+  /** User-visible failure signal when a storage write fails.
+      app.js hooks DB.onWriteError; without a hook it logs to console. */
+  _writeFailed(err) {
+    try {
+      if (typeof this.onWriteError === "function") this.onWriteError(err);
+      else if (typeof console !== "undefined") console.warn("storage write failed:", err);
+    } catch { /* never let the signal itself throw */ }
+  },
   _nextId() {
     const n = (parseInt(localStorage.getItem("br_seq") || "0", 10) || 0) + 1;
-    localStorage.setItem("br_seq", String(n));
+    try { localStorage.setItem("br_seq", String(n)); }
+    catch (err) { this._writeFailed(err); }
     return n;
   },
 
@@ -124,17 +141,71 @@ const DB = {
   getSettings() { return Object.assign({}, DEFAULT_SETTINGS, this._read("br_settings", {})); },
   saveSettings(s) { this._write("br_settings", s); },
 
+  /* ---- backup: export / import ------------------------------------------- */
+  /** Everything needed to restore the app, as a plain JSON-able object. */
+  exportData() {
+    let seq = "0", lang = "zh";
+    try { seq = localStorage.getItem("br_seq") || "0"; } catch { /* keep default */ }
+    try { lang = localStorage.getItem("bra_lang") || "zh"; } catch { /* keep default */ }
+    return {
+      app: "booking-reminder-app",
+      version: 1,
+      exported_at: new Date().toISOString(),
+      br_services: this._read("br_services", []),
+      br_bookings: this._read("br_bookings", []),
+      br_hours: this._read("br_hours", {}),
+      br_settings: this._read("br_settings", {}),
+      br_seq: seq,
+      bra_lang: lang,
+    };
+  },
+  /** Restore from an exported backup object. The whole shape is validated
+      BEFORE anything is written; throws "backup_invalid" on any mismatch. */
+  importData(backup) {
+    if (!backup || typeof backup !== "object" || Array.isArray(backup))
+      throw new Error("backup_invalid");
+    const services = backup.br_services, bookings = backup.br_bookings;
+    const hours = backup.br_hours, settings = backup.br_settings;
+    const lang = backup.bra_lang, seq = backup.br_seq;
+    if (!Array.isArray(services) || !services.every(_isObjWithId)) throw new Error("backup_invalid");
+    if (!Array.isArray(bookings) || !bookings.every(_isObjWithId)) throw new Error("backup_invalid");
+    if (!hours || typeof hours !== "object" || Array.isArray(hours)) throw new Error("backup_invalid");
+    if (!settings || typeof settings !== "object" || Array.isArray(settings)) throw new Error("backup_invalid");
+    if (lang !== undefined && lang !== "zh" && lang !== "en") throw new Error("backup_invalid");
+    if (seq !== undefined && !/^\d+$/.test(String(seq))) throw new Error("backup_invalid");
+    /* All valid — now write. Custom templates inside br_settings are
+       written verbatim, never rebuilt. */
+    this._write("br_services", services);
+    this._write("br_bookings", bookings);
+    this._write("br_hours", hours);
+    this._write("br_settings", settings);
+    if (seq !== undefined) {
+      try { localStorage.setItem("br_seq", String(seq)); } catch (err) { this._writeFailed(err); }
+    }
+    if (lang !== undefined) {
+      try { localStorage.setItem("bra_lang", lang); } catch (err) { this._writeFailed(err); }
+    }
+    return true;
+  },
+
   /* ---- services -------------------------------------------------------- */
   listServices() { return this._read("br_services", []); },
+  /** Sanitize service fields the same way for create and edit;
+      only whitelisted fields are kept, so e.g. id can't be overwritten. */
+  _cleanService(s) {
+    const out = {};
+    if (s.name_zh !== undefined) out.name_zh = (s.name_zh || "").trim();
+    if (s.name_en !== undefined) out.name_en = (s.name_en || "").trim();
+    if (s.duration_min !== undefined) out.duration_min = Math.max(5, parseInt(s.duration_min, 10) || 30);
+    if (s.price_hkd !== undefined) out.price_hkd = Math.max(0, parseFloat(s.price_hkd) || 0);
+    return out;
+  },
   addService(s) {
     const all = this.listServices();
-    const rec = {
-      id: this._nextId(),
-      name_zh: (s.name_zh || "").trim(),
-      name_en: (s.name_en || "").trim(),
-      duration_min: Math.max(5, parseInt(s.duration_min, 10) || 30),
-      price_hkd: Math.max(0, parseFloat(s.price_hkd) || 0),
-    };
+    const rec = Object.assign({ id: this._nextId() }, this._cleanService({
+      name_zh: s.name_zh, name_en: s.name_en,
+      duration_min: s.duration_min, price_hkd: s.price_hkd,
+    }));
     if (!rec.name_zh && !rec.name_en) throw new Error("service_name_required");
     all.push(rec); this._write("br_services", all);
     return rec;
@@ -143,7 +214,9 @@ const DB = {
     const all = this.listServices();
     const rec = all.find((x) => x.id === id);
     if (!rec) throw new Error("service_not_found");
-    Object.assign(rec, patch); this._write("br_services", all);
+    Object.assign(rec, this._cleanService(patch));
+    if (!rec.name_zh && !rec.name_en) throw new Error("service_name_required");
+    this._write("br_services", all);
     return rec;
   },
   removeService(id) {
@@ -201,6 +274,13 @@ const DB = {
     return Math.max(0, Math.round(parseFloat(st.deposit_value) || 0));
   },
 
+  /** Deposit amount + status for a booking on a service — the single source
+      of truth, shared by addBooking and updateBooking. */
+  _depositFor(serviceId) {
+    const amount = this.depositAmountFor(serviceId);
+    return { deposit_amount: amount, deposit_status: amount > 0 ? "pending" : "waived" };
+  },
+
   addBooking(b) {
     const name = (b.customer_name || "").trim();
     if (!name) throw new Error("name_required");
@@ -220,8 +300,7 @@ const DB = {
       time: b.time,
       notes: (b.notes || "").trim(),
       status: "confirmed",
-      deposit_status: this.depositAmountFor(b.service_id) > 0 ? "pending" : "waived",
-      deposit_amount: this.depositAmountFor(b.service_id),
+      ...this._depositFor(b.service_id),
       created_at: new Date().toISOString(),
     };
     all.push(rec); this._saveBookings(all);
@@ -234,11 +313,16 @@ const DB = {
     const newDate = patch.date !== undefined ? patch.date : rec.date;
     const newTime = patch.time !== undefined ? patch.time : rec.time;
     const newSvc = patch.service_id !== undefined ? patch.service_id : rec.service_id;
-    if (newDate !== rec.date || newTime !== rec.time || newSvc !== rec.service_id) {
+    const svcChanged = newSvc !== rec.service_id;
+    if (newDate !== rec.date || newTime !== rec.time || svcChanged) {
       const taken = this.availableSlots(newDate, newSvc, id);
       if (!taken.includes(newTime)) throw new Error("slot_taken");
     }
-    Object.assign(rec, patch); this._saveBookings(all);
+    Object.assign(rec, patch);
+    /* The deposit derives from the service: when the service changes,
+       recompute it exactly the way addBooking does. */
+    if (svcChanged) Object.assign(rec, this._depositFor(newSvc));
+    this._saveBookings(all);
     return rec;
   },
   setStatus(id, status) {

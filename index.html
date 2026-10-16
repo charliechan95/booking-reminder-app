@@ -29,6 +29,7 @@
   </div>
 </header>
 <main class="container">
+  <div id="storage-err" class="err" style="display:none;margin-top:.5rem"></div>
 
   <!-- Dashboard -->
   <section id="view-dashboard" class="view active">
@@ -118,7 +119,8 @@
             <input type="number" id="svc-price" min="0" step="1" value="0"></label>
         </div>
         <div class="form-actions">
-          <button type="submit" class="primary" data-i18n="svc_add">新增服務</button>
+          <button type="submit" id="svc-submit" class="primary" data-i18n="svc_add">新增服務</button>
+          <button type="button" id="svc-cancel" style="display:none" data-i18n="cancel">取消</button>
         </div>
         <div id="svc-err" class="err"></div>
       </form>
@@ -187,6 +189,17 @@
         <span id="set-ok" class="ok" style="display:none" data-i18n="set_saved">設定已儲存 ✓</span>
       </div>
     </form>
+
+    <div class="panel">
+      <h2 data-i18n="backup_title">備份</h2>
+      <p class="muted" data-i18n="backup_hint"></p>
+      <div class="form-actions">
+        <button type="button" id="btn-export" data-i18n="backup_export">匯出備份</button>
+        <button type="button" id="btn-import" data-i18n="backup_import">匯入還原</button>
+        <input type="file" id="file-import" accept="application/json,.json" hidden>
+      </div>
+      <div id="backup-msg" class="err"></div>
+    </div>
   </section>
 
 </main>
